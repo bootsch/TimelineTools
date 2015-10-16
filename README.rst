@@ -1,6 +1,6 @@
 Timeline Tools
 ==================================================
-Timeline Tool provides and EDL and a Timecode module combined in the timeline package.
+Timeline Tools provides and EDL and a Timecode module combined in the timeline package.
 
 The original comment lines in the edl and timecode module were very short and both still lack documentation.
 They were initially written for the VFX pipeline build for the Dutch feature film Minoes and further used in
