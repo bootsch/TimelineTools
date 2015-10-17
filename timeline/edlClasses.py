@@ -1,25 +1,12 @@
-# file : edlClasses.py
 #
 # This file defines an EDL Class and some other used subclasses
 # Written for use with Minoes by Bos Bros.
 #
-# The above is the original line when writing this module back in 2001 for the VFX pipeline
-# It contains a more or less general usable edl set but it contains plenty of free exentsion to the edl concept
-# generally not used by standard software applications such as Avid, Final Cut, Premiere, daVinci Resolve and other
-# high end grading software.
-#
-# More or less general since it's really bad on the speeds and effects side of edl's and audio was completely ignored
-# when writing the module and has never been required over the years it's been used in other production pipelines.
-#
-# Allthough I long had the intention to put it into the public domain it just never happened until this year
-# a student production desperately could use it's function to build their own edit update tools to daily deliver an
-# updated timeline of their film
-#
-# 
+# It highly depends on the Timecode module and as such they are bundled
 #
 # Author: Paul Boots
 # Copyright 2001 - 2015
-
+#
 
 import os, string, re, Timecode
 
