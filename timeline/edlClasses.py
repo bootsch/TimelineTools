@@ -1,14 +1,18 @@
 #
-# This file defines an EDL Class and some other used subclasses
-# Written for use with Minoes by Bos Bros.
-#
-# It highly depends on the Timecode module and as such they are bundled
-#
 # Author: Paul Boots
-# Copyright 2001 - 2015
+# Copyright bootsmaat 2001 - 2015
 #
 
+"""A set of EDL tools
+
+This module defines an EDL Class and some other used subclasses
+It highly depends on the Timecode module and as such they are bundled
+
+"""
+
 import os, string, re, Timecode
+
+from Timecode import DEFAULT_FPS_VALUE
 
 debug = 1
 
@@ -249,7 +253,7 @@ class AN_EDL_EVENT:
         theLine = theLine + "* FROM CLIP NAME:  " + self.slateNumber + "/" + self.takeNumber + newline
         return (theLine)
 
-    def getCMXRecord (self, a1 = 0, a2 = 0):
+    def getCMXRecord (self, a1=0, a2=0, clipname=False):
         # return tab separated record
         theLine = string.zfill (string.atoi (self.event_id), 3) + "  " + string.ljust (self.reel_id, 2) + "    "
         event = ""
@@ -268,15 +272,18 @@ class AN_EDL_EVENT:
             theLine = theLine + self.duration + " "
         else:
             theLine = theLine + "    "
-            
-        theLine = theLine + self.source_in + " " + self.source_out + " " + \
-                            self.record_in + " " + self.record_out + newline
-        if self.reel_id != "BL" and self.reel_id != "AX" and self.blackevent != 1:
-            if self.slateNumber != "":
-                theLine = theLine + "* FROM CLIP NAME:  " + self.slateNumber
-                if self.takeNumber:
-                    theLine = theLine + "/" + string.strip (self.takeNumber)
-            #theLine = theLine + newline
+    
+        theLine = "%s%s %s %s %s%s" % (theLine, self.source_in, self.source_out, self.record_in, self.record_out, newline)
+        
+        if clipname:
+            theLine = "%s* FROM CLIP NAME:  %s%s" % (theLine, self.clipName, newline)
+        else:
+            if self.reel_id != "BL" and self.reel_id != "AX" and self.blackevent != 1:
+                if self.slateNumber != "":
+                    theLine = theLine + "* FROM CLIP NAME:  " + self.slateNumber
+                    if self.takeNumber:
+                        theLine = theLine + "/" + string.strip (self.takeNumber)
+                #theLine = theLine + newline
         for comment in self.commentList:
             if comment != "" and comment != newline:
                 theLine = theLine + string.strip (comment) + newline
@@ -329,11 +336,11 @@ class AN_EDL:
     """
     Ad EDL class that allows you to work with edl in python.
     """
-    def __init__(self, name, title):
+    def __init__(self, name, title,fps=DEFAULT_FPS_VALUE):
         self.name  = name
         self.title = title
         self.fcm = ""           # Signifies drop or non-dropframe
-        self.fps = 24           # Edl frames frames per second
+        self.fps = fps           # Edl frames frames per second
         self.total_events = 0
         self.header = []
         self.eventList = list ("")
@@ -356,6 +363,10 @@ class AN_EDL:
         parseEDL2object2 (edlfile, edlfilename, edlobject = self)
         parseRawEDL2 (self)
     
+    def addEvent (self, event):
+        self.eventList.append (event)
+        self.total_events += 1
+    
     def getEvents (self):
         return (self.eventList)
 
@@ -377,8 +388,7 @@ class AN_EDL:
         
     def printAsString (self):
         # format gives the type of edl
-        print "TITLE:  ", self.title
-        print "* spit out by an edl object. PB hackware"
+        print "TITLE:  %s%s", (self.title, newline)
         for event in self.eventList:
             event.printAsString ()
         for sourcereel in self.sourceReelList:
@@ -391,7 +401,7 @@ class AN_EDL:
         edlString = edlString + newline
         edlString = edlString + newline.join (self.header)
         for event in self.eventList:
-            edlString = edlString + event.getCMXRecord ()
+            edlString = edlString + event.getCMXRecord (clipname=True)
             
         for sourcereel in self.sourceReelList:
             edlString = edlString + sourcereel.getAsString ()
@@ -439,160 +449,6 @@ class AN_EDL:
         self.clipList.sort ()
         return self.clipList
 
-
-# actual parsing
-def parseEDL2object (edl_file, filename, shiftEventCount = 0, fillGaps = TRUE, gvg = 0, edlobject = None):
-    """
-    parseEDL2object
-    """
-    l = edl_file.readline ()
-    firstline  = TRUE
-    firstevent = TRUE
-    eventindex = 0
-    lastEvent  = 0
-    lastRecOut = 0
-    step = 0
-    ne = ""
-    le = ""
-
-    lookfor = r'\d\d\d'
-    if gvg == 1:
-        lookfor = r'\d\d\d\d'
-        
-    while l != "":
-        # Check for leading carriage return
-        if re.match (r'\r',l):
-            l = re.sub (r'\r', '', l)
-            if debug > 3:
-                print "Carriage return at start of line! My god. Stripped now."
-
-        # Look for TITLE: first
-        if firstline == TRUE:
-            ls = string.split (l, ':', 2)
-            if ls[0] != "TITLE":
-                check = re.findall (r'\s', l)
-                if debug > 2:
-                    print "Check =", check, "lenght =", len(check)
-                if len (check) > 0:
-                    l = edl_file.readline ()
-                    continue
-
-            if edlobject:
-                edl = edlobject
-                edl.title = string.strip (ls[1])
-            else:
-                edl = AN_EDL (filename, string.strip (ls[1]))
-            edl.total_events = 0
-            #print "New EDL instanced. Filename:", edl.name, "Title:", edl.title
-            firstline = FALSE
-            
-        if firstline == FALSE:
-            if debug > 3:
-                print string.strip(l)
-                
-            ls = string.split (l)
-            
-            # First look for an event number
-            if re.match (lookfor, l):
-
-                if ls[0] == lastEvent:
-                    continuedEvent = 1
-                else:
-                    continuedEvent = 0
-                    lastEvent = ls[0]
-                
-                # Apr. 2004 - Leave event number untouched now
-                if continuedEvent:
-                    nn = string.atoi(lastEvent)
-                    # nn = string.atoi(lastEvent) + shiftEventCount
-                else:
-                    nn = string.atoi(ls[0]) + shiftEventCount
-                    edl.total_events = edl.total_events + 1
-                
-                if debug > 3:
-                    print "Original number:", string.atoi(ls[0]),"Converted number:", nn
-                    
-                ne = AN_EDL_EVENT (string.zfill(nn, 3), ls[1], ls[2], ls[3])
-                le = ""
-                
-                if ls[1] == "BL":
-                    ne.blackevent = 1
-                else:
-                    ne.blackevent = 0
-                if ls[3] == "D":
-                    if debug > 2:
-                        print "Found dissolve"
-                    ne.duration = ls[4]
-                    indexShift = 1
-                elif ls[3] == "K":
-                    indexShift = 1
-                else:
-                    indexShift = 0
-                
-                ne.source_in  = ls[4 + indexShift]	# Source timecode inpoint
-                ne.source_out = ls[5 + indexShift]	# Source timecode outpoint
-                ne.record_in  = ls[6 + indexShift]	# Record timecode inpoint
-                ne.record_out = ls[7 + indexShift]	# Record timecode outpoint
-                
-                if debug > 3:
-                    print "Source In: %s Out: %s   Record In: %s Out:%s" % (ne.source_in, ne.source_out, ne.record_in, ne.record_out)
-                edl.eventList.append (ne)
-                
-                # Compare Last record out and new record out
-                # For a regular cut the should be equal
-                # If the Last out point is before the current one we have a gap
-                # If the Last out is later - we have overlap and will need to trim
-                if debug > 3:
-                    print "Check last and new record out...",ls[6 + indexShift], lastRecOut
-                if firstevent == FALSE:
-                    # compare last record out to record in for gaps
-                    if Timecode.timeCodeCompare (ls[6 + indexShift], lastRecOut) != 0:
-                        # Insert additional in/out for black event
-                        # Take last record out for new rec. in and current
-                        # record in for new rec. out.
-                        # and don't forget to riple the event count
-                        if debug > 3:
-                            print "Found time gap in record timecode"
-                
-                lastRecOut = ls[7 + indexShift]
-                    
-                if firstevent:
-                    firstevent = FALSE
-                
-                eventindex = eventindex + 1
-                ne = ""
-
-            # Look for a comment line
-            elif re.match (r'\* ', l):
-                # True if we found a comment
-                if debug > 2:
-                    print "Eventindex: %s" % eventindex
-                ei = eventindex - 1
-                edl.eventList [ei].addCommentLine (l)
-
-            elif re.match (r'>>> SOURCE', l):
-                sourcereel = A_EDL_SOURCE_ID (ls)
-                edl.sourceReelList.append (sourcereel)
-                if debug > 3:
-                    print "Found source reel line", sourcereel.reel_1, sourcereel.reel_2, sourcereel.reelCode
-            
-            else:
-                try:
-                    if (le ==""):
-                        le = eventindex - 1
-                        
-                    edl.eventList [le].commentList.append (l)
-                    
-                except:
-                    pass
-                    
-        l = edl_file.readline ()
-    else:
-        pass
-        #print "done"
-
-    return (edl)
-	
 
 # New version of edl parsing
 def parseEDL2object2 (edl_file, filename, shiftEventCount = 0, fillGaps = False, gvg = 0, edlobject = None):
@@ -771,39 +627,6 @@ def parseEDL2object2 (edl_file, filename, shiftEventCount = 0, fillGaps = False,
     return (edl)
 	
 
-def parseRawEDL (edl):
-    """
-    Parse a 'raw' EDL object - probably right after creating the object from an edl file
-    It store clipname and keyclip name data in the eventobjects
-    """
-    for event in edl.eventList:
-        for comment in event.commentList:
-            # Check if we have the clipname
-            if re.match (r'\* FROM CLIP', comment):
-                # Get the clipname part
-                cn = string.strip (string.split (comment, ':') [1])
-                event.setClipName (cn)
-            # Check if we have the key clip name, with more info
-            if re.match (r'\* KEY CLIP NAME', comment):
-                # Get the name part seperated by a ':'
-                cn = string.strip (string.split (comment, ':') [1])
-                event.setKeyClipName (cn)
-    """
-    l = len (edl.eventList)
-    for i in range (l):
-        event = edl.eventList [i]
-        try:
-            next_event = edl.eventList [i + 1]
-        except:
-            next_event = None
-
-        if (next_event):
-            if (event.event_id == next_event.event_id):
-                event.setClipName (next_event.clipName)
-                event.setKeyClipName (next_event.keyClipName)
-    """
-    
-
 def parseRawEDL2 (edl):
     """
     Another version of parsing a 'raw' EDL object. The edl must be sorted by event for
@@ -879,61 +702,3 @@ def parseRawEDL2 (edl):
         # Set processed event to be last_event
         last_event_index += 1
             
-"""
-ci = string.split (string.split (cn)[0], '/')
-
-if (len (ci) == 3):
-	try:
-		edl.eventList [ei].setTakeNumber  (ci[2])
-	except:
-		print "no go setTakeNumber"
-		edl.eventList [ei].setTakeNumber  ("")
-if (len (ci) > 2):
-	try:
-		edl.eventList [ei].setSlateNumber (ci[1])
-	except:
-		print "no go setSlate from:", ci
-		edl.eventList [ei].setSlateNumber ("N/A")
-
-try:
-	edl.eventList [ei].setSceneNumber (ci[0])
-except:
-	print "no go setSlate from:", ci
-	edl.eventList [ei].setSceneNumber ("N/A")
-
-if debug > 2:
-	print "scene: %s, slate: %s, take: %s" % (edl.eventList [ei].getSceneNumber (), edl.eventList [ei].getSlateNumber (),edl.eventList [ei].getTakeNumber ())
-"""
-			
-"""
-# Check if we have the key clip name, with more info
-if re.match (r'\* KEY CLIP NAME', l):
-	# Get the name part seperated by a ':'
-	cn = string.strip (string.split (l, ':') [1])
-	ci = string.split (cn)
-	
-	print "ci: %s" % ci
-	# Try to get the layer info from the shot id
-	try:
-		edl.eventList [ei].setLayerNumber (ci [2])
-	except:
-		edl.eventList [ei].setLayerNumber ("N/A")
-		if debug > 2:
-			print "no go setLayerNumber from:", ci
-	
-	# See if there is additional shot instance data in the shot id
-	try:
-		tci = string.split (ci[1], "/")
-	except:
-		tci = (ci[1])
-		
-	if (len (tci) > 1):
-		edl.eventList [ei].setShotInstance (tci [1])
-	else:
-		edl.eventList [ei].setShotInstance (1)
-	
-	edl.eventList [ei].setShotNumber (tci[0])
-	if debug > 2:
-		print "event: %s; shot id: %s;" % (ei, edl.eventList [ei].shotNumber)
-"""
-	

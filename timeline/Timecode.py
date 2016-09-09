@@ -6,25 +6,27 @@
 #  $Revision: 409 $
 #
 #  Paul Boots
-#  Copyright (c) bootsMade, 2001 - 2009
+#  Copyright (c) bootsmaat, 2001 - 2016
 #
 
 """A small tool set of Timecode functions.
 
-The Timecode module has functions to convert between timecode and framecount, add and subtract, compare and get durations.
-All functions take the 'fps' variable. The default value is 25 and can be changed in the 'DEFAULT_FPS_VALUE' global variable.
-Calculation is done with framecount. Be careful to provide the correct fps value!
+The Timecode module has functions to convert between timecode and framecount, add and subtract,
+compare and get durations. All functions take the 'fps' variable. The default value is 25 and
+can be changed in the 'DEFAULT_FPS_VALUE' global variable. Calculation is done with framecount.
+Be careful to provide the correct fps value!
 
-Note on FrameCount: framecount is NOT the same as the actual number of frames! Framecount is absolute and as such the frame equavalent of
-smtp timecode. Framecount starts at zero (0) and the maximum framecount for 25 fps time code is 2159999, 23.59.59.24 in timecode.
-For 24 fps the maximum number is 2073599
+Note on FrameCount: framecount is NOT the same as the actual number of frames! Framecount is 
+absolute and as such the frame equavalent of SMPTE timecode. Framecount starts at zero (0) and
+the maximum framecount for 25 fps time code is 2159999, 23.59.59.24 in timecode. For 24 fps the
+maximum number is 2073599
 
 Frames are the actual frames of which you have at least one, if you want picture that is.
 """
 
 import string
 
-DEFAULT_FPS_VALUE = 25
+DEFAULT_FPS_VALUE = 24
 
 class FrameConversionError (Exception):
     """
@@ -274,9 +276,13 @@ def frameCountDuration (tc_1, tc_2, fps=DEFAULT_FPS_VALUE):
 #
 #  Part 2
 #
-class Timecode:
+class Timecode (object):
     """
     Base timecode value
+    
+    >>> Timecode ()
+    <Timecode.Timecode object at 0x...>
+    
     """
     def __init__ (self, timecode_string="", fps=DEFAULT_FPS_VALUE):
         """"
@@ -322,7 +328,13 @@ class Timecode:
         else:
             self.HH = 0
     
-        
+    def addFrames (self, frames):
+        """
+        Add number of frames to this timecode
+        """
+        timecode_string = frameCount2timeCode (timeCode2frameCount (self.asString (), self.fps) + frames, self.fps)
+        self._setTCFromString (timecode_string)
+
     def asString (self, separator=":"):
         return separator.join (( string.zfill (self.HH, 2), 
                                  string.zfill (self.MM, 2), 
@@ -342,5 +354,5 @@ class Timecode:
 if __name__ == "__main__":
     print '**running standard doctest'
     import doctest, Timecode
-    doctest.testmod(Timecode)
+    doctest.testmod(Timecode, verbose=True, optionflags=doctest.ELLIPSIS)
 
