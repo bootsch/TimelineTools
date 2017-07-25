@@ -4,7 +4,7 @@ Timeline Tools provides and EDL and a Timecode module combined in the timeline p
 
 The original comment lines in the edl and timecode module were very short and both still lack documentation.
 They were initially written for the VFX pipeline build for the Dutch feature film Minoes and further used in
-later VFX production pipelines. As such the focues allways has been just the correct functioning of a particular
+later VFX production pipelines. As such the focus allways has been just the correct functioning of a particular
 use case.
 
 Still it contains a more or less general usable edl and timecode. The edl class has as a lot of attributes
